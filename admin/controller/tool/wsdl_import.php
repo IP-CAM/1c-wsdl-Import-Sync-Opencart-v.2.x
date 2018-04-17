@@ -2,6 +2,7 @@
 class ControllerToolWsdlImport extends Controller {
 	private $error = array();
 	private $ssl = 'SSL';
+	private $structure = false;
 
 	public function __construct( $registry ) {
 		parent::__construct( $registry );
@@ -51,7 +52,7 @@ class ControllerToolWsdlImport extends Controller {
             foreach ($existingProducts as $existingProduct) {
                 $existingProductsModels["{$existingProduct['model']}"] = $existingProduct['product_id'];
             }
-            foreach ($xml->children() as $product) {
+            foreach ($xml->xpath('//TableSKU')[0]->children() as $product) {
 
                 $productAttributes = $product->attributes();
                 if (!in_array($productAttributes['Artikle'], array_keys($existingProductsModels))) {
@@ -69,6 +70,18 @@ class ControllerToolWsdlImport extends Controller {
         $this->response->setOutput(json_encode($json));
 	}
 
+    public function printSoapResponse()
+    {
+        $soapResponse = $this->getSoapResponse();
+        $xml = $soapResponse['xml'];
+        $xml= $xml->xpath('//Structure')[0]->children();
+        foreach ($xml as $item) {
+            echo $item->getName() . '(' . $item->count() . ')';
+        }
+        $dump = $xml;
+        var_dump($dump);
+//        $this->response->setOutput(json_encode($xml, JSON_UNESCAPED_UNICODE));
+	}
 
     public function getSoapResponse()
     {
@@ -91,6 +104,7 @@ class ControllerToolWsdlImport extends Controller {
             {
                 $client = new SoapClient($settings['wsdl_import_url'], $options);
                 $response = $client->GetRemainsXML(null);
+//                echo $response->return;
                 $result['xml'] = simplexml_load_string($response->return);
                 $result['error'] = false;
             }
@@ -107,29 +121,73 @@ class ControllerToolWsdlImport extends Controller {
         }
 	}
 
-    public function createCategories(Array $categories)
+    public function createAllCategories($structure = false, $parentId = false)
     {
-        foreach ($categories as $category) {
-            if (!$this->model_tool_wsdl_import->getCategoryByName($category)) {
-                $this->model_catalog_category->addCategory(array(
-                    'parent_id' => 0,
-                    'top' => 1,
-                    'sort_order' => 0,
-                    'status' => 1,
-                    'column' => 1,
-                    'category_description' => array (
-                        '2' => array(
-                            'name' => $category,
-                            'meta_title' => $category,
-                            'meta_keyword' => $category,
-                            'meta_description' => '',
-                            'description' => ''
-                        )
-                    ),
-                    'category_store' => array(0)
-                ));
-            }
+        $this->load->model('tool/wsdl_import');
+
+        if ($structure === false && $parentId === false) {
+            $structure = $this->getSoapResponse()['xml']->xpath('//Structure')[0];
+            $parentId = 0;
         }
+        if ($structure->count() && $structure->getName() != 'Structure') {
+
+            $parentId = $this->createCategory([
+                'name' => $structure->getName(),
+                'parent_id' => $parentId
+            ]);
+
+            echo $structure->getName() . ' ' . $parentId;
+
+            foreach ($structure->children() as $category) {
+
+                $this->createAllCategories( $category, $parentId );
+            }
+        } else if ($structure->getName() == 'Structure') {
+            foreach ($structure->children() as $category) {
+
+                $this->createAllCategories( $category, $parentId );
+            }
+        } else {
+            $this->createCategory([
+                'name' => $structure->getName(),
+                'parent_id' => $parentId
+            ]);
+        }
+	}
+
+    public function createCategory($category)
+    {
+        $this->load->model('catalog/category');
+
+        $parentCategoryId = $category['parent_id'];
+
+//        $storedCategory = $this->model_tool_wsdl_import->getCategoryByName($category['name']);
+//        if (!$storedCategory) {
+            $categoryId = $this->model_catalog_category->addCategory(array(
+                'parent_id' => $parentCategoryId,
+                'top' => 1,
+                'sort_order' => 0,
+                'status' => 1,
+                'column' => 1,
+                'category_description' => array (
+                    '2' => array(
+                        'name' => $category['name'],
+                        'meta_title' => $category['name'],
+                        'meta_keyword' => $category['name'],
+                        'meta_description' => '',
+                        'description' => ''
+                    )
+                ),
+                'category_store' => array(0)
+            ));
+//        } else {
+//            $storedCategoryData = $this->model_catalog_category->getCategory($storedCategory['category_id']);
+//            $storedCategoryData['category_description'] = $this->model_catalog_category->getCategoryDescriptions($storedCategory['category_id']);
+//            $storedCategoryData['parent_id'] = $parentCategoryId;
+//            $this->model_catalog_category->editCategory($storedCategory['category_id'], $storedCategoryData);
+//            $categoryId = $storedCategory['category_id'];
+//        }
+        return $categoryId;
     }
 
     public function createProducts(Array $products)
@@ -222,7 +280,7 @@ class ControllerToolWsdlImport extends Controller {
             foreach ($existingProducts as $existingProduct) {
                 $existingProductsModels["{$existingProduct['model']}"] = $existingProduct['product_id'];
             }
-            foreach ($xml->children() as $product) {
+            foreach ($xml->xpath('//TableSKU')[0]->children() as $product) {
 
                 $productAttributes = $product->attributes();
                 if (in_array($productAttributes['Artikle'], array_keys($existingProductsModels))) {
