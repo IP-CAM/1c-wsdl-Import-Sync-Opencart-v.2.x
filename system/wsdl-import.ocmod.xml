@@ -1,0 +1,57 @@
+<modification>
+	<name>1C Wsdl Sync Tool (V1.0) for OpenCart 2.x</name>
+	<code>1C Wsdl Sync Tool (V1.0) for OpenCart 2.x</code>
+	<version>2.x-3.20</version>
+	<author>Alexey Rakitin</author>
+	<link>https://github.com/alexey-rakitin</link>
+	<file path="admin/controller/common/menu.php">
+		<operation error="skip">
+			<search><![CDATA[$data['text_backup'] = $this->language->get('text_backup');]]></search>
+			<add position="after"><![CDATA[
+		$data['text_wsdl_import'] = $this->language->get('text_wsdl_import');
+			]]></add>
+		</operation>
+		<operation error="skip">
+			<search><![CDATA[$data['backup'] = $this->url->link('tool/backup', 'token=' . $this->session->data['token'],]]></search>
+			<add position="after"><![CDATA[
+		$data['wsdl_import'] = $this->url->link('tool/wsdl_import', 'token=' . $this->session->data['token'], (version_compare(PHP_VERSION, '2.2.0.0') >= 0) ? true : 'SSL');
+			]]></add>
+		</operation>
+	</file>
+	<file path="admin/language/*/common/menu.php">
+		<operation error="skip">
+			<search><![CDATA[$_['text_backup']]]></search>
+			<add position="after"><![CDATA[
+$_['text_wsdl_import']               = '1C Wsdl Sync';
+			]]></add>
+		</operation>
+	</file>
+	<file path="admin/view/template/common/menu.tpl">
+		<operation error="skip">
+			<search><![CDATA[<li><a href="<?php echo $backup; ?>"><?php echo $text_backup; ?></a></li>]]></search>
+			<add position="replace"><![CDATA[<li><a href="<?php echo $backup; ?>"><?php echo $text_backup; ?></a></li><li><a href="<?php echo $wsdl_import; ?>"><?php echo $text_wsdl_import; ?></a></li>]]></add>
+		</operation>
+	</file>
+	<file path="admin/controller/common/column_left.php">
+		<operation error="skip">
+			<search><![CDATA[if ($this->user->hasPermission('access', 'tool/log')) {]]></search>
+			<add position="before"><![CDATA[
+			if ($this->user->hasPermission('access', 'tool/wsdl_import')) {
+				$tool[] = array(
+					'name'	   => $this->language->get('text_wsdl_import'),
+					'href'     => $this->url->link('tool/wsdl_import', 'token=' . $this->session->data['token'], true),
+					'children' => array()		
+				);
+			}
+			]]></add>
+		</operation>
+	</file>
+	<file path="admin/language/*/common/column_left.php">
+		<operation error="skip">
+			<search><![CDATA[$_['text_backup']]]></search>
+			<add position="after"><![CDATA[
+$_['text_wsdl_import']             = '1C Wsdl Sync';
+			]]></add>
+		</operation>
+	</file>
+</modification>
