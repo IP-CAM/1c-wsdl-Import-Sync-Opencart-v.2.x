@@ -1,8 +1,6 @@
 <?php
 class ControllerToolWsdlImport extends Controller {
 	private $error = array();
-	private $ssl = 'SSL';
-	private $structure = false;
 
 	public function __construct( $registry ) {
 		parent::__construct( $registry );
@@ -74,13 +72,8 @@ class ControllerToolWsdlImport extends Controller {
     {
         $soapResponse = $this->getSoapResponse();
         $xml = $soapResponse['xml'];
-        $xml= $xml->xpath('//Structure')[0]->children();
-        foreach ($xml as $item) {
-            echo $item->getName() . '(' . $item->count() . ')';
-        }
-        $dump = $xml;
-        var_dump($dump);
-//        $this->response->setOutput(json_encode($xml, JSON_UNESCAPED_UNICODE));
+//        $xml= $xml->xpath('//Structure')[0]->children();
+        $this->response->setOutput(json_encode($xml, JSON_UNESCAPED_UNICODE));
 	}
 
     public function getSoapResponse()
@@ -104,7 +97,6 @@ class ControllerToolWsdlImport extends Controller {
             {
                 $client = new SoapClient($settings['wsdl_import_url'], $options);
                 $response = $client->GetRemainsXML(null);
-//                echo $response->return;
                 $result['xml'] = simplexml_load_string($response->return);
                 $result['error'] = false;
             }
@@ -117,7 +109,6 @@ class ControllerToolWsdlImport extends Controller {
             {
                 return $result;
             }
-
         }
 	}
 
@@ -132,14 +123,11 @@ class ControllerToolWsdlImport extends Controller {
         if ($structure->count() && $structure->getName() != 'Structure') {
 
             $parentId = $this->createCategory([
-                'name' => $structure->getName(),
+                'name' => trim($structure->attributes()['name']),
                 'parent_id' => $parentId
             ]);
 
-            echo $structure->getName() . ' ' . $parentId;
-
             foreach ($structure->children() as $category) {
-
                 $this->createAllCategories( $category, $parentId );
             }
         } else if ($structure->getName() == 'Structure') {
@@ -149,7 +137,7 @@ class ControllerToolWsdlImport extends Controller {
             }
         } else {
             $this->createCategory([
-                'name' => $structure->getName(),
+                'name' => trim($structure->attributes()['name']),
                 'parent_id' => $parentId
             ]);
         }
@@ -161,8 +149,6 @@ class ControllerToolWsdlImport extends Controller {
 
         $parentCategoryId = $category['parent_id'];
 
-//        $storedCategory = $this->model_tool_wsdl_import->getCategoryByName($category['name']);
-//        if (!$storedCategory) {
             $categoryId = $this->model_catalog_category->addCategory(array(
                 'parent_id' => $parentCategoryId,
                 'top' => 1,
@@ -180,13 +166,6 @@ class ControllerToolWsdlImport extends Controller {
                 ),
                 'category_store' => array(0)
             ));
-//        } else {
-//            $storedCategoryData = $this->model_catalog_category->getCategory($storedCategory['category_id']);
-//            $storedCategoryData['category_description'] = $this->model_catalog_category->getCategoryDescriptions($storedCategory['category_id']);
-//            $storedCategoryData['parent_id'] = $parentCategoryId;
-//            $this->model_catalog_category->editCategory($storedCategory['category_id'], $storedCategoryData);
-//            $categoryId = $storedCategory['category_id'];
-//        }
         return $categoryId;
     }
 
@@ -196,15 +175,15 @@ class ControllerToolWsdlImport extends Controller {
             $data = array(
                 'product_description' => array(
                     '2' => array(
-                        'name' => $product['Name'],
+                        'name' => $product['name'],
                         'description' => '',
-                        'meta_title' => $product['Name'],
+                        'meta_title' => $product['name'],
                         'meta_description' => '',
                         'meta_keyword' => '',
                         'tag' => ''
                     )
                 ),
-                'model' => $product['Artikle'],
+                'model' => $product['model'],
                 'sku' => '',
                 'upc' => '',
                 'ean' => '',
@@ -212,9 +191,9 @@ class ControllerToolWsdlImport extends Controller {
                 'isbn' => '',
                 'mpn' => '',
                 'location' => '',
-                'price' => $product['Price'],
+                'price' => $product['price'],
                 'tax_class_id' => '0',
-                'quantity' => $product['Quantity'],
+                'quantity' => $product['quantity'],
                 'minimum' => '1',
                 'subtract' => '1',
                 'stock_status_id' => '6',
@@ -232,10 +211,7 @@ class ControllerToolWsdlImport extends Controller {
                 'manufacturer' => '',
                 'manufacturer_id' => '0',
                 'category' => '',
-                'product_category' => array(
-                    isset($this->model_tool_wsdl_import->getCategoryByName(trim($product['Group']))['category_id']) ?
-                        $this->model_tool_wsdl_import->getCategoryByName(trim($product['Group']))['category_id'] : ''
-                ),
+                'product_category' => $product['product_category'],
                 'filter' => '',
                 'product_store' => [0],
                 'download' => '',
@@ -259,6 +235,7 @@ class ControllerToolWsdlImport extends Controller {
     }
     public function sync()
     {
+        //@TODO Set products not in feed as inactive
         $soapResponse = $this->getSoapResponse();
         $xml = $soapResponse['xml'];
 
@@ -270,31 +247,40 @@ class ControllerToolWsdlImport extends Controller {
         } else {
 
             $this->load->model('catalog/product');
-            $this->load->model('catalog/category');
             $this->load->model('tool/wsdl_import');
 
             $existingProducts = $this->model_catalog_product->getProducts();
             $existingProductsModels = [];
 
-            $existingCategories = $this->model_catalog_category->getCategories();
             foreach ($existingProducts as $existingProduct) {
                 $existingProductsModels["{$existingProduct['model']}"] = $existingProduct['product_id'];
             }
             foreach ($xml->xpath('//TableSKU')[0]->children() as $product) {
-
                 $productAttributes = $product->attributes();
+                $data['quantity'] = isset($productAttributes['Quantity']) ? $productAttributes['Quantity'] : false;
+                $data['price'] = isset($productAttributes['Price']) ? $productAttributes['Price'] : false;
+                $data['model'] = isset($productAttributes['Artikle']) ? $productAttributes['Artikle'] : false;
+                $data['name'] = isset($productAttributes['Name']) ? $productAttributes['Name'] : false;
+                $productCategoriesNames = explode('|', $productAttributes['Group']);
+                foreach ($productCategoriesNames as $productCategoryName) {
+                    if ($this->model_tool_wsdl_import->getCategoryByName(trim($productCategoryName))) {
+                        $data['product_category'][] = (int)$this->model_tool_wsdl_import->getCategoryByName(trim($productCategoryName))['category_id'];
+                    }
+                    //@TODO what if there's no category?
+                }
                 if (in_array($productAttributes['Artikle'], array_keys($existingProductsModels))) {
-                    $data['quantity'] = isset($productAttributes['Quantity']) ? $productAttributes['Quantity'] : false;
-                    $data['price'] = isset($productAttributes['Price']) ? $productAttributes['Price'] : false;
                     $this->model_tool_wsdl_import->editProduct($existingProductsModels["{$productAttributes['Artikle']}"], $data);
                     $count++;
+                } else {
+                    //CREATE NEW
+                    $this->createProducts(array($data));
+                    $count++;
                 }
-                $json['categories'][] = isset($productAttributes['Group']) ? trim($productAttributes['Group']->__toString()) : '';
+                unset($data);
             }
             $json['count'] = $count;
             $json['message'] = $this->language->get('text_success');
         }
-        $json['categories'] = array_unique($json['categories']);
         $this->response->setOutput(json_encode($json));
     }
 
