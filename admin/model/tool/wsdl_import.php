@@ -24,17 +24,28 @@ class ModelToolWsdlImport extends Model {
             $this->db->query("UPDATE " . DB_PREFIX . "product SET price = '" . $this->db->escape($data['price']) . "' WHERE product_id = '" . (int)$product_id . "'");
         }
 
-        $this->db->query("DELETE FROM " . DB_PREFIX . "product_to_category WHERE product_id = '" . (int)$product_id . "'");
         if (isset($data['product_category'])) {
+            $this->db->query("DELETE FROM " . DB_PREFIX . "product_to_category WHERE product_id = '" . (int)$product_id . "'");
             foreach ($data['product_category'] as $category_id) {
                 $this->db->query("INSERT INTO " . DB_PREFIX . "product_to_category SET product_id = '" . (int)$product_id . "', category_id = '" . (int)$category_id . "'");
             }
         }
 	}
 
-    public function getCategoryByName($name)
+    public function getCategoryByName($name, $parentId = false)
     {
-        $query = $this->db->query("SELECT * FROM " . DB_PREFIX . "category_description WHERE name = '" . $name . "'");
+        if ($parentId !== false) {
+            $query = $this->db->query(
+                "SELECT * FROM " . DB_PREFIX . "category_description LEFT JOIN " . DB_PREFIX . "category ON "
+                . DB_PREFIX . "category_description.category_id = " . DB_PREFIX . "category.category_id AND "
+                . DB_PREFIX . "category_description.name = '" . $name . "' AND "
+                . DB_PREFIX . "category.parent_id = '" . $parentId . "'"
+            );
+        } else {
+            $query = $this->db->query(
+                "SELECT * FROM " . DB_PREFIX . "category_description WHERE name = '" . $name . "'"
+            );
+        }
 
         return $query->row;
 	}

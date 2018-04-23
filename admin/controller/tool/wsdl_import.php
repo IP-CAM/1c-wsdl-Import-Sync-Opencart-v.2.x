@@ -148,14 +148,15 @@ class ControllerToolWsdlImport extends Controller {
         $this->load->model('catalog/category');
 
         $parentCategoryId = $category['parent_id'];
-
+        $existingCategory = $this->model_tool_wsdl_import->getCategoryByName($category['name'], $parentCategoryId);
+        if (!$existingCategory) {
             $categoryId = $this->model_catalog_category->addCategory(array(
                 'parent_id' => $parentCategoryId,
                 'top' => 1,
                 'sort_order' => 0,
                 'status' => 1,
                 'column' => 1,
-                'category_description' => array (
+                'category_description' => array(
                     '2' => array(
                         'name' => $category['name'],
                         'meta_title' => $category['name'],
@@ -166,6 +167,9 @@ class ControllerToolWsdlImport extends Controller {
                 ),
                 'category_store' => array(0)
             ));
+        } else {
+            $categoryId = $existingCategory['category_id'];
+        }
         return $categoryId;
     }
 
@@ -211,7 +215,6 @@ class ControllerToolWsdlImport extends Controller {
                 'manufacturer' => '',
                 'manufacturer_id' => '0',
                 'category' => '',
-                'product_category' => $product['product_category'],
                 'filter' => '',
                 'product_store' => [0],
                 'download' => '',
@@ -220,6 +223,7 @@ class ControllerToolWsdlImport extends Controller {
                 'image' => '',
                 'points' => '',
             );
+            if ( isset($product['product_category']) ) $data['product_category'] =  $product['product_category'];
             $this->model_catalog_product->addProduct($data);
         }
     }
@@ -249,6 +253,8 @@ class ControllerToolWsdlImport extends Controller {
             $this->load->model('catalog/product');
             $this->load->model('tool/wsdl_import');
 
+            $this->createAllCategories();
+
             $existingProducts = $this->model_catalog_product->getProducts();
             $existingProductsModels = [];
 
@@ -266,10 +272,10 @@ class ControllerToolWsdlImport extends Controller {
                     if ($this->model_tool_wsdl_import->getCategoryByName(trim($productCategoryName))) {
                         $data['product_category'][] = (int)$this->model_tool_wsdl_import->getCategoryByName(trim($productCategoryName))['category_id'];
                     }
-                    //@TODO what if there's no category?
                 }
                 if (in_array($productAttributes['Artikle'], array_keys($existingProductsModels))) {
                     $this->model_tool_wsdl_import->editProduct($existingProductsModels["{$productAttributes['Artikle']}"], $data);
+                    unset($existingProductsModels[(string)$productAttributes['Artikle']]);
                     $count++;
                 } else {
                     //CREATE NEW
@@ -278,10 +284,18 @@ class ControllerToolWsdlImport extends Controller {
                 }
                 unset($data);
             }
+            $this->stockToZero($existingProductsModels);
+
             $json['count'] = $count;
             $json['message'] = $this->language->get('text_success');
         }
         $this->response->setOutput(json_encode($json));
+    }
+
+    protected function stockToZero($products) {
+        foreach ($products as $productId) {
+            $this->model_tool_wsdl_import->editProduct($productId, array('quantity' => 0));
+        }
     }
 
     protected function getForm() {
