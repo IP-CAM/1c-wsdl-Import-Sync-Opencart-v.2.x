@@ -17,7 +17,7 @@ class ModelToolWsdlImport extends Model {
 
     public function editProduct($product_id, $data)
     {
-        if (isset($data['quantity']) && $data['quantity'] != false ) {
+        if (isset($data['quantity']) && $data['quantity'] !== false ) {
             $this->db->query("UPDATE " . DB_PREFIX . "product SET quantity = '" . $this->db->escape($data['quantity']) . "' WHERE product_id = '" . (int)$product_id . "'");
         }
         if (isset($data['price']) && $data['price'] != false ) {
@@ -37,7 +37,7 @@ class ModelToolWsdlImport extends Model {
         if ($parentId !== false) {
             $query = $this->db->query(
                 "SELECT * FROM " . DB_PREFIX . "category_description LEFT JOIN " . DB_PREFIX . "category ON "
-                . DB_PREFIX . "category_description.category_id = " . DB_PREFIX . "category.category_id AND "
+                . DB_PREFIX . "category_description.category_id = " . DB_PREFIX . "category.category_id WHERE "
                 . DB_PREFIX . "category_description.name = '" . $name . "' AND "
                 . DB_PREFIX . "category.parent_id = '" . $parentId . "'"
             );
@@ -46,7 +46,6 @@ class ModelToolWsdlImport extends Model {
                 "SELECT * FROM " . DB_PREFIX . "category_description WHERE name = '" . $name . "'"
             );
         }
-
         return $query->row;
 	}
 }

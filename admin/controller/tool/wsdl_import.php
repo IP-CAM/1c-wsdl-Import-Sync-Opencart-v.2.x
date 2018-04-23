@@ -28,51 +28,10 @@ class ControllerToolWsdlImport extends Controller {
 		$this->getForm();
 	}
 
-    public function import()
-    {
-        $soapResponse = $this->getSoapResponse();
-        $xml = $soapResponse['xml'];
-
-        $json = [];
-
-        if ($soapResponse['error']) {
-            $json['error'] = $soapResponse['error'];
-        } else {
-
-            $this->load->model('catalog/product');
-            $this->load->model('catalog/category');
-            $this->load->model('tool/wsdl_import');
-
-            $existingProducts = $this->model_catalog_product->getProducts();
-            $existingProductsModels = [];
-            $productsToImport = [];
-            $categoriesToImport = [];
-            foreach ($existingProducts as $existingProduct) {
-                $existingProductsModels["{$existingProduct['model']}"] = $existingProduct['product_id'];
-            }
-            foreach ($xml->xpath('//TableSKU')[0]->children() as $product) {
-
-                $productAttributes = $product->attributes();
-                if (!in_array($productAttributes['Artikle'], array_keys($existingProductsModels))) {
-                    $productsToImport[] = $product;
-                }
-                $categoriesToImport[] = isset($productAttributes['Group']) ? trim($productAttributes['Group']->__toString()) : '';
-            }
-            $categoriesToImport = array_unique($categoriesToImport);
-            $this->createCategories($categoriesToImport);
-
-            $this->createProducts($productsToImport);
-
-            $json['message'] = 'Created ' . count($categoriesToImport) . 'categories and ' . count($productsToImport) . ' products';
-        }
-        $this->response->setOutput(json_encode($json));
-	}
-
     public function printSoapResponse()
     {
         $soapResponse = $this->getSoapResponse();
         $xml = $soapResponse['xml'];
-//        $xml= $xml->xpath('//Structure')[0]->children();
         $this->response->setOutput(json_encode($xml, JSON_UNESCAPED_UNICODE));
 	}
 
@@ -237,9 +196,9 @@ class ControllerToolWsdlImport extends Controller {
         }
         $this->response->setOutput('Successfully deleted');
     }
+
     public function sync()
     {
-        //@TODO Set products not in feed as inactive
         $soapResponse = $this->getSoapResponse();
         $xml = $soapResponse['xml'];
 
@@ -267,12 +226,8 @@ class ControllerToolWsdlImport extends Controller {
                 $data['price'] = isset($productAttributes['Price']) ? $productAttributes['Price'] : false;
                 $data['model'] = isset($productAttributes['Artikle']) ? $productAttributes['Artikle'] : false;
                 $data['name'] = isset($productAttributes['Name']) ? $productAttributes['Name'] : false;
-                $productCategoriesNames = explode('|', $productAttributes['Group']);
-                foreach ($productCategoriesNames as $productCategoryName) {
-                    if ($this->model_tool_wsdl_import->getCategoryByName(trim($productCategoryName))) {
-                        $data['product_category'][] = (int)$this->model_tool_wsdl_import->getCategoryByName(trim($productCategoryName))['category_id'];
-                    }
-                }
+                $categoriesIdsList = $this->getCategoriesFromDelimitedChain($productAttributes['Group']);
+                if ($categoriesIdsList !== false) $data['product_category'] = $categoriesIdsList;
                 if (in_array($productAttributes['Artikle'], array_keys($existingProductsModels))) {
                     $this->model_tool_wsdl_import->editProduct($existingProductsModels["{$productAttributes['Artikle']}"], $data);
                     unset($existingProductsModels[(string)$productAttributes['Artikle']]);
@@ -292,7 +247,19 @@ class ControllerToolWsdlImport extends Controller {
         $this->response->setOutput(json_encode($json));
     }
 
+    protected function getCategoriesFromDelimitedChain($categories, $delimiter = '|')
+    {
+        $categories = explode($delimiter, $categories);
+        if (!$categories) return false;
+        $parentId = 0;
+        foreach ($categories as $categoryName) {
+            $result[] = $parentId =  $this->model_tool_wsdl_import->getCategoryByName(trim($categoryName), $parentId)['category_id'];
+        }
+        return $result;
+    }
+
     protected function stockToZero($products) {
+	    var_dump($products);
         foreach ($products as $productId) {
             $this->model_tool_wsdl_import->editProduct($productId, array('quantity' => 0));
         }
