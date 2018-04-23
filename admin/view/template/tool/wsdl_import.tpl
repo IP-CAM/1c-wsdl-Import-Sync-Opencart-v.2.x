@@ -52,7 +52,6 @@
 					</div>
 					<button type="submit" class="btn btn-primary"><span>Update Settings</span></button>
 					<a onclick="sync(); return false;" class="btn btn-primary"><span>Synchronize</span></a>
-					<a onclick="doImport(); return false;" class="btn btn-primary"><span>Import</span></a>
 				</form>
 			</div>
 		</div>
@@ -80,27 +79,6 @@ function sync() {
         error: function() {
         }
     });
-}
-
-function doImport() {
-	$.ajax({
-		type: 'POST',
-		url: 'index.php?route=tool/wsdl_import/import&token=<?php echo $token; ?>',
-		dataType: 'json',
-		success: function(json) {
-			if (json['error']) {
-				$('<div class="alert alert-danger"><i class="fa fa-exclamation-circle"></i> ' + json['error'] + '</b>' + '<button type="button" class="close" data-dismiss="alert">&times;</button></div>').prependTo('#content .panel-body');
-			} else if (json['message']) {
-				$('<div class="alert alert-success"><i class="fa fa-check-circle"></i> ' + json['message'] + '<button type="button" class="close" data-dismiss="alert">&times;</button></div>').prependTo('#content .panel-body');
-			} else {
-
-			}
-		},
-		failure: function(){
-		},
-		error: function() {
-		}
-	});
 }
 //--></script>
 
