@@ -259,7 +259,6 @@ class ControllerToolWsdlImport extends Controller {
     }
 
     protected function stockToZero($products) {
-	    var_dump($products);
         foreach ($products as $productId) {
             $this->model_tool_wsdl_import->editProduct($productId, array('quantity' => 0));
         }
