@@ -31,8 +31,7 @@ class ControllerToolWsdlImport extends Controller {
     public function printSoapResponse()
     {
         $soapResponse = $this->getSoapResponse();
-        $xml = $soapResponse['xml'];
-        $this->response->setOutput(json_encode($xml, JSON_UNESCAPED_UNICODE));
+        $this->response->setOutput(json_encode($soapResponse, JSON_UNESCAPED_UNICODE));
 	}
 
     public function getSoapResponse()
@@ -63,6 +62,7 @@ class ControllerToolWsdlImport extends Controller {
             {
                 $result['xml'] = false;
                 $result['error'] = $exception->getMessage();
+                $this->log->write('Error getting Soap response: ' . $result['error']);
             }
             finally
             {
