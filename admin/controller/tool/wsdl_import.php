@@ -46,14 +46,22 @@ class ControllerToolWsdlImport extends Controller {
             $result['xml'] = false;
             $result['error'] = $this->language->get( 'error_notifications' );
         } else {
+            $wsdl_import_url = str_replace( '://', '://'.$settings['wsdl_import_login'].':'.$settings['wsdl_import_pass'].'@' , $settings['wsdl_import_url'] );
             $options = array(
+                'soap_version' => SOAP_1_2,
+                'authentication' => SOAP_AUTHENTICATION_BASIC,
+                'connection_timeout' => 30,
+                'cache_wsdl' => WSDL_CACHE_NONE,
+//                'compression' => SOAP_COMPRESSION_ACCEPT | SOAP_COMPRESSION_GZIP | 9,
                 'login' => $settings['wsdl_import_login'],
-                'password' => $settings['wsdl_import_pass']
+                'password' => $settings['wsdl_import_pass'],
+                'trace' => 1,
+                'keep_alive' => false
             );
 
+            $client = new SoapClient($wsdl_import_url, $options);
             try
             {
-                $client = new SoapClient($settings['wsdl_import_url'], $options);
                 $response = $client->GetRemainsXML(null);
                 $result['xml'] = simplexml_load_string($response->return);
                 $result['error'] = false;
@@ -61,7 +69,7 @@ class ControllerToolWsdlImport extends Controller {
             catch (Exception $exception)
             {
                 $result['xml'] = false;
-                $result['error'] = $exception->getMessage();
+                $result['error'] = $exception->getMessage() . $client->__getLastResponseHeaders();
                 $this->log->write('Error getting Soap response: ' . $result['error']);
             }
             finally
