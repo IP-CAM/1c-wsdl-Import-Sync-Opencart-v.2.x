@@ -142,12 +142,18 @@ class ControllerToolWsdlImport extends Controller {
 
     public function createProducts(Array $products)
     {
+        $this->load->model('tool/wsdl_import');
         foreach ($products as $product) {
+            if ( !isset($product['model'])
+                || !$product['model']
+                || $this->model_tool_wsdl_import->getProductsByModel($product['model'])) { continue; };
+
             $data = array(
                 'product_description' => array(
                     '2' => array(
                         'name' => $product['name'],
                         'description' => '',
+                        'short_description' => '',
                         'meta_title' => $product['name'],
                         'meta_description' => '',
                         'meta_keyword' => '',
@@ -195,6 +201,25 @@ class ControllerToolWsdlImport extends Controller {
         }
     }
 
+    public function deleteDuplicatedProducts()
+    {
+        $this->load->model('catalog/product');
+        $this->load->model('tool/wsdl_import');
+        $count = 0;
+
+        $existingProducts = $this->model_catalog_product->getProducts();
+        foreach ($existingProducts as $existingProduct) {
+            $duplicated = $this->model_tool_wsdl_import->getProductsByModel($existingProduct['model']);
+            if (count($duplicated) > 1) {
+                foreach ($duplicated as $key => $product) {
+                    if ($key == 0) {continue;}
+                    $this->model_catalog_product->deleteProduct($product['product_id']);
+                    $count++;
+                }
+            }
+        }
+        $this->response->setOutput('Successfully deleted ' . $count . ' products');
+    }
     public function deleteAllProducts()
     {
         $this->load->model('catalog/product');

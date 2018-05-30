@@ -48,6 +48,14 @@ class ModelToolWsdlImport extends Model {
         }
         return $query->row;
 	}
+
+    public function getProductsByModel($model)
+    {
+        $query = $this->db->query(
+            "SELECT * FROM " . DB_PREFIX . "product WHERE model = '" . $model . "'"
+        );
+        return $query->rows;
+	}
 }
 
 
